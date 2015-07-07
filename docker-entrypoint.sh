@@ -46,11 +46,34 @@ export PGPASSWORD BACKUP_USER PGHOST PGUSER BACKUP_DIR SCHEMA_ONLY_LIST ENABLE_C
 : ${WEEKS_TO_KEEP:="5"}
 
 export DAY_OF_WEEK_TO_KEEP DAYS_TO_KEEP WEEKS_TO_KEEP
+
+# By default we don't encrypt
+: ${ENCRYPT:="no"}
+
+# Set this to your encrypt password
+: ${ENCRYPT_PASSWORD:="unset"}
  
 ######################################
 
 echo "HOME is ${HOME}"
 echo "WHOAMI is `whoami`"
+
+
+function encrypt_backup {
+    if [ "x${ENCRYPT}" = 'xyes' ]; then
+        echo "[Run] Starting encrypt"
+
+        if [ "x${ENCRYPT_PASSWORD}" = 'xunset' ]; then
+            echo "Encrypt password not set" && exit 1
+        fi
+
+        find ${BACKUP_DIR} -maxdepth 2 -type f -not \( -name "*.enc" -o -name "*.log" -o -name "lockfile" \) \
+            -exec echo '{}' ';' \
+            -exec openssl enc -aes-256-cbc -e -in '{}' -out '{}'.enc -pass pass:"${ENCRYPT_PASSWORD}" ';' \
+            -exec rm -f '{}' ';'
+    fi
+}
+
 
 if [ "$1" = 'backup' ]; then
     echo "[Run] Starting backup"
@@ -58,7 +81,8 @@ if [ "$1" = 'backup' ]; then
 
     (
         flock -n 9 || exit 1
-        time /pg_backup_rotated.sh 2>&1 | tee /data/backup.log
+        time /pg_backup_rotated.sh 2>&1 | tee -a /data/backup.log
+        encrypt_backup 2>&1 | tee -a /data/backup.log
     ) 9>/data/lockfile
 
     exit $?
