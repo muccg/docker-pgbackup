@@ -1,5 +1,5 @@
 #
-FROM postgres:9.4
+FROM postgres:9.5
 MAINTAINER https://github.com/muccg/
 
 RUN mkdir /data \
