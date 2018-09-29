@@ -74,21 +74,13 @@ function encrypt_backup {
     fi
 }
 
+echo "[Run] Starting backup"
+date
 
-if [ "$1" = 'backup' ]; then
-    echo "[Run] Starting backup"
-    date
+(
+    flock -n 9 || exit 1
+    time /pg_backup_rotated.sh 2>&1 | tee -a /data/backup.log
+    encrypt_backup 2>&1 | tee -a /data/backup.log
+) 9>/data/lockfile
 
-    (
-        flock -n 9 || exit 1
-        time /pg_backup_rotated.sh 2>&1 | tee -a /data/backup.log
-        encrypt_backup 2>&1 | tee -a /data/backup.log
-    ) 9>/data/lockfile
-
-    exit $?
-fi
-
-echo "[RUN]: Builtin command not provided [backup]"
-echo "[RUN]: $@"
-
-exec "$@"
+exit $?
